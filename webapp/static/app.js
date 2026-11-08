@@ -82,6 +82,7 @@ function showTab(name) {
   for (const tab of document.querySelectorAll(".tab")) tab.setAttribute("aria-selected", String(tab.dataset.tab === name));
   for (const panel of document.querySelectorAll(".panel")) panel.hidden = panel.dataset.panel !== name;
   store.set("tab", name);
+  if (name === "ticket") loadResults();
 }
 
 function budgetCents() {
@@ -118,6 +119,107 @@ function onGameChange() {
   updateBudgetNote();
   refreshSession();
   $("history-template").href = "/api/templates/" + (game() === "649" ? "history_649" : "history_max");
+  prepareTicketForm();
+}
+
+// ---------- ticket checker ----------
+const ticketState = { game: null, draws: [] };
+
+function prepareTicketForm() {
+  const is649 = game() === "649";
+  $("ticket-gold-row").hidden = !is649;
+  $("ticket-lines").placeholder = is649 ? "1 14 30 32 43 45" : "3 12 19 28 35 42 49\n8 23 32 39 43 44 50";
+  $("ticket-hint").textContent = is649
+    ? "Six numbers from 1 to 49 per line. Spaces or commas are fine."
+    : "Seven numbers from 1 to 52 per line. Enter all four lines of each $6 play, including the three Quick Picks.";
+  clear("ticket-results");
+  showError("ticket-error", "");
+  if (!$("tab-ticket").hidden) loadResults();
+}
+
+function balls(numbers, hits, bonus) {
+  return el("span", { class: "balls" }, numbers.map((n) =>
+    el("span", { class: "ball" + (hits && hits.includes(n) ? " hit" : "") + (n === bonus ? " bonus" : "") },
+      String(n).padStart(2, "0"))));
+}
+
+async function loadResults() {
+  const key = game();
+  if (ticketState.game === key && ticketState.draws.length) return;
+  const select = $("ticket-draw");
+  while (select.firstChild) select.firstChild.remove();
+  select.append(el("option", { value: "" }, "Loading draws…"));
+  showError("ticket-error", "");
+  try {
+    const data = await api(`/api/results/${key}`);
+    if (game() !== key) return;   // the game changed while loading
+    ticketState.game = key;
+    ticketState.draws = data.draws;
+    while (select.firstChild) select.firstChild.remove();
+    for (const draw of data.draws) {
+      select.append(el("option", { value: draw.date },
+        `${drawDay(draw.date, { weekday: "short", month: "short", day: "numeric", year: "numeric" })}: ` +
+        `${draw.numbers.join(" ")} + bonus ${draw.bonus}`));
+    }
+    $("ticket-source").textContent = "Official results: " + data.status;
+  } catch (error) {
+    ticketState.draws = [];
+    while (select.firstChild) select.firstChild.remove();
+    select.append(el("option", { value: "" }, "No results available"));
+    showError("ticket-error", error.message);
+  }
+}
+
+function renderTicket(report) {
+  const root = clear("ticket-results");
+  root.append(el("div", { class: report.any_win ? "banner good" : "banner info" },
+    report.any_win ? "Prize found! Confirm it with PlayNow or a BCLC retailer." : "No prize on these lines for this draw."));
+  if (report.wins.length) root.append(el("ul", null, report.wins.map((w) => el("li", null, w))));
+  root.append(el("p", null, `Winning numbers for ${drawDay(report.date, { weekday: "long", month: "long", day: "numeric" })}: `,
+    balls(report.winning_numbers, report.winning_numbers, null), "  bonus ", balls([report.bonus], [], report.bonus)));
+  const body = el("tbody");
+  report.lines.forEach((row, i) => {
+    const result = row.tier ? `${row.tier} – ${row.prize}` : "No prize";
+    const extras = row.extras.map((x) => `${x.draw} exact match – ${x.prize}`);
+    body.append(el("tr", null, el("td", { class: "num" }, i + 1),
+      el("td", null, balls(row.line, row.matched, row.bonus_on_line ? report.bonus : null)),
+      el("td", { class: "num" }, row.matched_count + (row.bonus_on_line ? " + bonus" : "")),
+      el("td", { class: row.tier || extras.length ? "ok" : "" }, [result, ...extras].join("; "))));
+  });
+  root.append(el("div", { class: "table-wrap" }, el("table", null, el("thead", null, el("tr", null,
+    el("th", { class: "num" }, "Line"), el("th", null, "Your numbers (matches highlighted)"),
+    el("th", { class: "num" }, "Matched"), el("th", null, "Result"))), body)));
+  const gold = report.gold_ball;
+  if (gold) {
+    const winners = gold.winning_numbers.join(", ") || "not shown";
+    root.append(el("p", { class: "small" }, gold.checked
+      ? (gold.won ? `Gold Ball ${gold.number}: ${[gold.kind && gold.kind + " " + gold.gold_ball_prize, ...gold.super_draw_prizes.map((p) => "Super Draw " + p)].filter(Boolean).join("; ")}.`
+        : `Gold Ball ${gold.number}: no match (winning Gold Ball number ${winners}).`)
+      : `Gold Ball not checked. This draw's winning Gold Ball number: ${winners}.`));
+  }
+  root.append(el("ul", { class: "small muted" }, report.notes.map((n) => el("li", null, n))));
+  if (report.details_url) {
+    root.append(el("p", { class: "small" }, el("a", { href: report.details_url, rel: "noopener noreferrer", target: "_blank" },
+      "Official prize breakdown for this draw")));
+  }
+}
+
+async function checkTicket() {
+  showError("ticket-error", "");
+  const date = $("ticket-draw").value;
+  if (!date) { showError("ticket-error", "Choose a draw first."); return; }
+  const button = $("run-ticket");
+  button.disabled = true;
+  try {
+    const gold = $("ticket-gold").value.trim();
+    renderTicket(await api("/api/check-ticket", { method: "POST", json: {
+      game: game(), draw_date: date, lines: $("ticket-lines").value, gold_ball: game() === "649" && gold ? gold : null } }));
+  } catch (error) {
+    clear("ticket-results");
+    showError("ticket-error", error.message);
+  } finally {
+    button.disabled = false;
+  }
 }
 
 // ---------- rules ----------
@@ -668,6 +770,13 @@ function wire() {
         budget: budgetText() || null, draw_date: $("odds-draw").value || null, gold_issued: gold ? Number(gold) : null },
       (job) => renderOddsReport(job.result, gameKey));
   });
+  $("run-ticket").addEventListener("click", checkTicket);
+  $("clear-ticket").addEventListener("click", () => {
+    $("ticket-lines").value = "";
+    $("ticket-gold").value = "";
+    clear("ticket-results");
+    showError("ticket-error", "");
+  });
   $("run-compare").addEventListener("click", async () => {
     showError("compare-error", "");
     const gold = $("compare-gold").value.trim();
@@ -691,7 +800,7 @@ function restore() {
   const today = new Date();
   $("compare-week").value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
   const tab = store.get("tab");
-  showTab(["dashboard", "history", "generator", "wheel", "odds"].includes(tab) ? tab : "dashboard");
+  showTab(["dashboard", "history", "generator", "wheel", "odds", "ticket"].includes(tab) ? tab : "dashboard");
 }
 
 document.addEventListener("DOMContentLoaded", () => {

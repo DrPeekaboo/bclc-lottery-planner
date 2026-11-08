@@ -151,3 +151,17 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 details summary { cursor: pointer; color: var(--accent); margin: 6px 0; }
 
 footer { padding: 8px 16px 32px; }
+
+/* Ticket checker */
+label.stack { display: block; font-weight: 600; margin: 10px 0 4px; }
+textarea {
+  width: 100%; font: inherit; font-variant-numeric: tabular-nums; padding: 8px 10px;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); resize: vertical;
+}
+.balls { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.ball {
+  display: inline-block; min-width: 2em; text-align: center; padding: 1px 4px; border-radius: 999px;
+  border: 1px solid var(--border); font-variant-numeric: tabular-nums;
+}
+.ball.hit { background: var(--good-soft); color: var(--good); border-color: var(--good); font-weight: 700; }
+.ball.bonus { border-style: dashed; }

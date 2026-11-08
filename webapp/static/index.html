@@ -23,6 +23,7 @@
     <button type="button" class="tab" data-tab="generator" aria-selected="false">Generator</button>
     <button type="button" class="tab" data-tab="wheel" aria-selected="false">Wheel</button>
     <button type="button" class="tab" data-tab="odds" aria-selected="false">Odds &amp; compare</button>
+    <button type="button" class="tab" data-tab="ticket" aria-selected="false">Check ticket</button>
   </nav>
 
   <main class="wrap">
@@ -160,6 +161,29 @@
         <button type="button" id="run-compare">Compare</button>
         <div id="compare-error" class="error" role="alert"></div>
         <div id="compare-results"></div>
+      </div>
+    </section>
+    <!-- CHECK TICKET -->
+    <section id="tab-ticket" class="panel" data-panel="ticket" hidden>
+      <div class="card">
+        <h2>Check a ticket</h2>
+        <p class="small">Compares your lines with the official winning numbers from WCLC. Your numbers are checked once and are not saved. Official BCLC results prevail.</p>
+        <div class="row">
+          <label>Draw <select id="ticket-draw"><option value="">Loading draws…</option></select></label>
+        </div>
+        <p class="small muted" id="ticket-source"></p>
+        <label class="stack" for="ticket-lines">Your numbers, one line per row</label>
+        <textarea id="ticket-lines" rows="5" spellcheck="false" autocomplete="off"></textarea>
+        <p class="small muted" id="ticket-hint"></p>
+        <div class="row" id="ticket-gold-row">
+          <label>Gold Ball number (optional) <input id="ticket-gold" type="text" inputmode="numeric" autocomplete="off" placeholder="e.g. 05426542-01" maxlength="20"></label>
+        </div>
+        <div class="row">
+          <button type="button" id="run-ticket">Check my ticket</button>
+          <button type="button" class="secondary" id="clear-ticket">Clear</button>
+        </div>
+        <div id="ticket-error" class="error" role="alert"></div>
+        <div id="ticket-results" aria-live="polite"></div>
       </div>
     </section>
   </main>

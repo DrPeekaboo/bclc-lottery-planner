@@ -170,6 +170,52 @@ class WebTests(unittest.TestCase):
         self.assertEqual(len(regime["expected"]["odd"]), 7)
 
 
+class TicketApiTests(unittest.TestCase):
+    def setUp(self):
+        import webapp.server as server
+        from test_tickets import DRAW_649, DRAW_MAX
+        self.server, self.saved = server, server.draw_info
+        self.client = TestClient(app)
+        self.snapshot = {**load_snapshot(), "mode": "live", "fetched_at": "2026-11-08 00:07 BC", "notes": [],
+                         "results": {"649": [DRAW_649], "max": [DRAW_MAX]}}
+
+    def tearDown(self):
+        self.server.draw_info = self.saved
+
+    def test_unavailable_results_are_reported_not_guessed(self):
+        self.assertEqual(self.client.get("/api/results/649").status_code, 503)
+        reply = self.client.post("/api/check-ticket", json={"game": "649", "draw_date": "2026-11-07",
+                                                            "lines": "1 14 30 32 43 45"})
+        self.assertEqual(reply.status_code, 503)
+        self.assertIn("PlayNow", reply.json()["detail"])
+
+    def test_list_and_check_tickets(self):
+        self.server.draw_info = DrawInfo(True, 1800, lambda: self.snapshot)
+        listing = self.client.get("/api/results/649").json()
+        self.assertEqual(listing["draws"][0]["gold_ball_winners"], ["42827458-02"])
+        self.assertEqual(self.client.get("/api/results/max").json()["draws"][0]["maxmillions"], 1)
+        ok = self.client.post("/api/check-ticket", json={
+            "game": "649", "draw_date": "2026-11-07", "lines": "1 14 30 32 43 45\n9, 15, 20, 23, 26, 31",
+            "gold_ball": "42827458-02"}).json()
+        self.assertTrue(ok["any_win"])
+        self.assertEqual([row["tier"] for row in ok["lines"]], [None, "6/6"])
+        self.assertTrue(ok["gold_ball"]["won"])
+        self.assertIn("Live from WCLC", ok["source"])
+        bad = self.client.post("/api/check-ticket", json={"game": "649", "draw_date": "2026-11-07",
+                                                          "lines": "1 2 3 4 5 6\n1 2 3"})
+        self.assertEqual(bad.status_code, 400)
+        self.assertIn("Line 2", bad.json()["detail"])
+        missing = self.client.post("/api/check-ticket", json={"game": "649", "draw_date": "2026-10-01",
+                                                              "lines": "1 2 3 4 5 6"})
+        self.assertEqual(missing.status_code, 404)
+        wrong = self.client.post("/api/check-ticket", json={"game": "max", "draw_date": "2026-11-06",
+                                                            "lines": "1 2 3 4 5 6 7", "gold_ball": "05426542-01"})
+        self.assertEqual(wrong.status_code, 400)
+        mm = self.client.post("/api/check-ticket", json={"game": "max", "draw_date": "2026-11-06",
+                                                         "lines": "47 42 39 35 25 7 6"}).json()
+        self.assertEqual(mm["lines"][0]["extras"][0]["draw"], "MAXMILLIONS")
+
+
 class DrawInfoTests(unittest.TestCase):
     LIVE = {**load_snapshot(), "mode": "live", "fetched_at": "2026-11-07 22:00 BC", "notes": []}
 

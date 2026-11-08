@@ -39,6 +39,19 @@ class MaxResult:
     bonus: int
     maxmillions: int
     maxplus: int
+    maxmillions_sets: tuple[tuple[int, ...], ...] = ()
+    maxplus_sets: tuple[tuple[int, ...], ...] = ()
+    details_url: str = ""
+
+
+def _sets_of_seven(values: list[str], where: str) -> tuple[tuple[int, ...], ...]:
+    sets = []
+    for start in range(0, len(values), 7):
+        line = tuple(sorted(int(v) for v in values[start:start + 7]))
+        if len(line) != 7 or len(set(line)) != 7 or not all(1 <= x <= 52 for x in line):
+            raise ValueError(f"{where}: an extra-draw number set could not be read.")
+        sets.append(line)
+    return tuple(sets)
 
 
 def bc_now(now: datetime | None = None) -> datetime:
@@ -118,13 +131,19 @@ def parse_max_results(page: str) -> list[MaxResult]:
         bonus = re.search(r'pastWinNumberBonusText">\s*Bonus\s*</span>\s*(\d+)', block)
         if len(numbers) != 7 or len(set(numbers)) != 7 or not all(1 <= x <= 52 for x in numbers) or not bonus:
             raise ValueError(f"Lotto Max results for {day.isoformat()} could not be read; the layout may have changed.")
-        plus_numbers = len(re.findall(r'class="winNumHomeNumberMaxPlus">', block))
-        mm_numbers = len(re.findall(r'class="pastWinNumMM">', block))
-        if plus_numbers % 7 or mm_numbers % 7:
+        plus_values = re.findall(r'class="winNumHomeNumberMaxPlus">\s*(\d+)\s*<', block)
+        mm_values = re.findall(r'class="pastWinNumMM">\s*(\d+)\s*<', block)
+        if len(plus_values) % 7 or len(mm_values) % 7:
             raise ValueError(f"Lotto Max extra draws for {day.isoformat()} are incomplete on the page.")
-        if mm_numbers == 0 and "No MAXMILLIONS" not in block and "pastWinNumMMGroup" in block:
+        if not mm_values and "No MAXMILLIONS" not in block and "pastWinNumMMGroup" in block:
             raise ValueError(f"Lotto Max MAXMILLIONS for {day.isoformat()} could not be read.")
-        results.append(MaxResult(day, numbers, int(bonus.group(1)), mm_numbers // 7, plus_numbers // 7))
+        where = f"Lotto Max {day.isoformat()}"
+        # The prize-breakdown link sits in the sidebar just before this draw's date heading.
+        before = page[headings[index - 1].end() if index else 0: heading.start()]
+        links = re.findall(r'pastWinNumPrizeBreakdown"\s+rel="([^"]+)"', before)
+        results.append(MaxResult(day, numbers, int(bonus.group(1)), len(mm_values) // 7, len(plus_values) // 7,
+                                 _sets_of_seven(mm_values, where), _sets_of_seven(plus_values, where),
+                                 "https://www.wclc.com" + links[-1] if links else RESULTS_MAX_URL))
     if not results:
         raise ValueError("No Lotto Max draws found on the results page; its layout may have changed.")
     return results
@@ -233,7 +252,18 @@ def build_snapshot(now: datetime, page_649: str, page_max: str, page_next: str) 
             "feed_note": "Read automatically from WCLC's public pages at " + local.strftime("%Y-%m-%d %H:%M") +
                          " BC. Pages can lag official announcements; official BCLC information prevails.",
             "draws": sorted(valid, key=lambda d: (d["date"], d["game"])), "notes": notes,
-            "sources": [PLAY_NOW_URL, RESULTS_649_URL, RESULTS_MAX_URL]}
+            "sources": [PLAY_NOW_URL, RESULTS_649_URL, RESULTS_MAX_URL],
+            # Official winning numbers for the ticket checker (newest first).
+            "results": {
+                "649": [{"date": d.day.isoformat(), "numbers": list(d.numbers), "bonus": d.bonus,
+                         "gold_ball": [list(pair) for pair in d.gold_ball], "ball_drawn": d.ball_drawn,
+                         "super_draws": [list(pair) for pair in d.super_draws], "details_url": d.details_url}
+                        for d in reversed(results_649)],
+                "max": [{"date": r.day.isoformat(), "numbers": list(r.numbers), "bonus": r.bonus,
+                         "maxmillions_sets": [list(s) for s in r.maxmillions_sets],
+                         "maxplus_sets": [list(s) for s in r.maxplus_sets], "details_url": r.details_url}
+                        for r in reversed(results_max)],
+            }}
 
 
 def fetch_live_snapshot(now: datetime | None = None, fetch=fetch_page) -> dict:

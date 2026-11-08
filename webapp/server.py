@@ -30,6 +30,7 @@ from bclc.games import GAMES, cad, money_cents, read_history, read_receipt
 from bclc.generate import coverage, wheel_precheck
 from bclc.odds import TIERS, portfolio_odds, probability_record, series_probability, single_probability
 from bclc.service import MAX_PLAYS, column_layout, make_plan, ticket_rows
+from bclc.tickets import check_ticket, parse_lines
 
 from .jobs import JobManager
 from .sessions import COOKIE, Session, SessionStore
@@ -235,6 +236,57 @@ def healthz():
 @app.get("/api/rules")
 def rules():
     return rules_payload()
+
+
+def official_results(game_key: str) -> tuple[dict, list]:
+    info = draw_info.get()
+    results = (info.get("results") or {}).get(game_key)
+    if not results:
+        raise HTTPException(503, "Official results can't be read from WCLC right now. Please try again later, "
+                                 "or check your ticket on PlayNow.")
+    return info, results
+
+
+@app.get("/api/results/{game_key}")
+def results_list(game_key: str):
+    """Draws whose official winning numbers are available for checking (newest first)."""
+    game = game_of(game_key)
+    info, results = official_results(game.key)
+    draws = []
+    for result in results:
+        entry = {"date": result["date"], "numbers": result["numbers"], "bonus": result["bonus"],
+                 "details_url": result.get("details_url")}
+        if game.key == "649":
+            entry.update(ball_drawn=result.get("ball_drawn"), super_draws=len(result.get("super_draws", [])),
+                         gold_ball_winners=[n[:8] + "-" + n[8:] for n, _ in result.get("gold_ball", [])])
+        else:
+            entry.update(maxmillions=len(result.get("maxmillions_sets", [])),
+                         maxplus=len(result.get("maxplus_sets", [])))
+        draws.append(entry)
+    return {"game": game.name, "mode": info["mode"], "status": info["status"], "draws": draws}
+
+
+class TicketRequest(BaseModel):
+    game: Literal["649", "max"]
+    draw_date: date
+    lines: str = Field(..., min_length=1, max_length=6000)
+    gold_ball: str | None = Field(None, max_length=20)
+
+
+@app.post("/api/check-ticket")
+def check_ticket_endpoint(body: TicketRequest):
+    """Checks once against official results; the numbers entered are not stored or logged."""
+    info, results = official_results(body.game)
+    match = next((r for r in results if r["date"] == body.draw_date.isoformat()), None)
+    if match is None:
+        raise HTTPException(404, f"No official results for {body.draw_date.isoformat()} are available here. "
+                                 "Results appear after the draw is posted; the page lists the last few weeks.")
+    try:
+        report = check_ticket(body.game, match, parse_lines(body.lines, body.game), body.gold_ball or "")
+    except ValueError as exc:
+        bad_request(exc)
+    report["source"] = info["status"]
+    return report
 
 
 @app.get("/api/draws")

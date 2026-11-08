@@ -43,6 +43,12 @@ Checked November 7, 2026 against the rendered PlayNow Lotto Max and Lotto 6/49 p
 - Tests: 59 pass with the web packages (10 new draw-builder tests on synthetic WCLC-layout pages, 2 new cache/fallback tests); the plain CLI suite passes with website tests skipped. Tests never use the network.
 - Local browser check (http://localhost:8770): Dashboard "Next draws" shows only undrawn draws with published/derived basis; Odds tab lists live dated draws newest first with "(drawn)" labels; week of Nov 9 comparison now has both Nov 10 and Nov 11 draws; no page overflow at 375 px; no server errors.
 
+## Ticket checker (version 1.3.0, November 8, 2026)
+
+- New `bclc/tickets.py` and endpoints `/api/results/{game}` and `/api/check-ticket`; Lotto Max results now keep the MAXMILLIONS/MAXPLUS winning sets and per-draw prize-breakdown links.
+- Tests: 69 pass with the web packages. Tier decisions are cross-checked on 3,000 random 6/49 lines against the separate results-checker classifier and on 3,000 random Lotto Max lines against an independent statement of PlayNow's table; every tier occurs.
+- Local browser check against live official results: Ken's Nov 7 line 1 14 30 32 43 45 -> 0 matched, no prize; Nov 7 numbers -> 6/6; 6 9 15 22 40 41 -> 2/6+bonus $5; Gold Ball 42827458-02 -> $1,000,000 match; Lotto Max Nov 6 numbers -> 7/7 and 6 7 25 35 39 42 47 -> MAXMILLIONS match; 5-number Max line -> readable error; no overflow at 375 px; no server errors.
+
 ## Not verified
 
 - PlayNow's on-screen number-pad layout (it sits inside the logged-in purchase flow). The 7-column grid remains an assumption; use `--slip-columns` or `--slip-map`.

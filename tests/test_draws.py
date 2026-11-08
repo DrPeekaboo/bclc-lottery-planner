@@ -44,7 +44,8 @@ def result_max(day_text, maxplus, maxmillions):
             f'<li class="pastWinNumMM">{n}</li>' for n in range(1, 8)) + "</ul>" for _ in range(maxmillions)) + "</div>")
     else:
         mm = '<div class="pastWinNumMMNo">No MAXMILLIONS draws this week</div>'
-    return (f'<div class="pastWinNumDate">\n<h4>\n{day_text}\n</h4></div><ul class="pastWinNumbers">{main}'
+    link = f'<div class="pastWinNumPrizeBreakdown" rel="/lotto-max-prize-details.htm?drawNumber={maxplus}">x</div>'
+    return (f'{link}<div class="pastWinNumDate">\n<h4>\n{day_text}\n</h4></div><ul class="pastWinNumbers">{main}'
             f'<li class="pastWinNumberBonus"><span class="pastWinNumberBonusText">Bonus</span>30</li></ul>'
             f'<!-- MAXPLUS-->{plus}<!-- MAXMILLIONS-->{mm}')
 
@@ -74,6 +75,14 @@ class ParserTests(unittest.TestCase):
         results = parse_max_results(PAGE_MAX)
         self.assertEqual([(r.day, r.maxplus, r.maxmillions) for r in results],
                          [(date(2026, 11, 6), 50, 2), (date(2026, 11, 3), 40, 0)])
+        # Winning sets are kept for the ticket checker, and each draw gets its own breakdown link.
+        self.assertEqual(results[0].maxmillions_sets, ((1, 2, 3, 4, 5, 6, 7),) * 2)
+        self.assertEqual(len(results[0].maxplus_sets), 50)
+        self.assertTrue(results[0].details_url.endswith("drawNumber=50"))
+        self.assertTrue(results[1].details_url.endswith("drawNumber=40"))
+        snap = build_snapshot(NOW, PAGE_649, PAGE_MAX, play_now())
+        self.assertEqual([r["date"] for r in snap["results"]["max"]], ["2026-11-06", "2026-11-03"])
+        self.assertEqual(snap["results"]["649"][0]["numbers"], [1, 3, 22, 28, 36, 41])
 
     def test_layout_changes_fail_loudly(self):
         for bad in ("<html>nothing</html>", play_now().replace("Balls Remaining", "Balls")):
