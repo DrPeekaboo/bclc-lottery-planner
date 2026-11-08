@@ -40,6 +40,8 @@
 }
 
 * { box-sizing: border-box; }
+/* Keep native hidden sections and finished job controls out of layout. */
+[hidden] { display: none !important; }
 html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
@@ -95,6 +97,8 @@ a { color: var(--accent); }
 code { font-size: 0.9em; background: var(--accent-soft); padding: 1px 4px; border-radius: 4px; }
 
 .row { display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: center; margin: 10px 0; }
+/* Long draw labels must shrink within phone-width form rows. */
+.row > * { min-width: 0; max-width: 100%; }
 .row label { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .check { align-items: flex-start; }
 .small { font-size: 0.9rem; }
