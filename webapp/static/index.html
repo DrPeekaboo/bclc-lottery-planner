@@ -46,6 +46,9 @@
           <h2 id="rules-title">Rules</h2>
           <p id="rules-lines"></p>
           <p class="muted" id="rules-draws"></p>
+          <h3>Next draws</h3>
+          <ul id="upcoming-draws" class="small"><li>Loading draw information…</li></ul>
+          <p class="small muted" id="draws-status"></p>
           <div class="table-wrap"><table id="rules-table"><thead><tr><th>Match</th><th>Prize</th><th>Published odds per play</th></tr></thead><tbody></tbody></table></div>
           <ul id="rules-extras" class="small"></ul>
           <p class="muted small" id="rules-note"></p>
@@ -141,6 +144,7 @@
           <label>Dated draw (optional) <select id="odds-draw"><option value="">None</option></select></label>
           <label>National Gold Ball numbers issued (6/49, optional) <input id="odds-gold" type="number" min="1" placeholder="unknown"></label>
         </div>
+        <p class="small muted" id="odds-draws-status"></p>
         <button type="button" id="run-odds">Calculate odds</button>
         <div class="job" id="odds-job" hidden><progress max="1" value="0"></progress><span class="stage small"></span><button type="button" class="secondary cancel">Cancel</button></div>
         <div id="odds-error" class="error" role="alert"></div>

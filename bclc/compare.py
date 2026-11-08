@@ -104,27 +104,34 @@ def compare_week(snapshot: dict, budget_cents: int, week_of: date, gold_issued=N
     for draw in snapshot["draws"]:
         if monday <= date.fromisoformat(draw["date"]) <= sunday:
             row = draw_comparison(draw, budget_cents, gold_issued)
-            row["timing_relative_to_snapshot"] = ("Past draw: sales closed" if draw["date"] < snapshot["as_of"] else
-                                                   "On/after snapshot date: verify current sales cutoff")
+            row["timing_relative_to_snapshot"] = (
+                "Drawn: results already posted" if draw.get("drawn") else
+                "Past draw: sales closed" if draw["date"] < snapshot["as_of"] else
+                "On/after snapshot date: verify current sales cutoff")
             rows.append(row)
     complete = all("million_category_probability_per_cad_spent" in row for row in rows)
     winner = max(rows, key=lambda r: r.get("million_category_probability_per_cad_spent", -1)) if rows and complete else None
     # These thresholds compare Gold Ball alone with ONE $6 Max play; they do
     # not need a guessed national sales count or confuse current/prior draws.
+    # Use Max draws in the requested week plus the next Max draw on/after the
+    # snapshot date, so a long live history does not produce dozens of lines.
+    max_draws = sorted((d for d in snapshot["draws"] if d["game"] == "max"), key=lambda d: d["date"])
+    upcoming = next((d for d in max_draws if d["date"] >= snapshot["as_of"]), None)
+    chosen = [d for d in max_draws if monday <= date.fromisoformat(d["date"]) <= sunday or d is upcoming]
     thresholds = []
-    for draw in snapshot["draws"]:
-        if draw["game"] == "max":
-            validate_draw(draw)
-            p = iid_quick_pick_series(1, 3, comb(52, 7), draw["maxmillions"] + 1)
-            thresholds.append({"max_draw_date": draw["date"],
-                               "gold_ball_beats_max_main_plus_mm_per_dollar_if_G_less_than": float(2 / p),
-                               "basis": "Gold Ball any $1M+ award vs one Max play main/MM category; IID QP model."})
+    for draw in chosen:
+        validate_draw(draw)
+        p = iid_quick_pick_series(1, 3, comb(52, 7), draw["maxmillions"] + 1)
+        thresholds.append({"max_draw_date": draw["date"],
+                           "gold_ball_beats_max_main_plus_mm_per_dollar_if_G_less_than": float(2 / p),
+                           "basis": "Gold Ball any $1M+ award vs one Max play main/MM category; IID QP model."})
     return {"snapshot_as_of": snapshot["as_of"], "week_monday": monday.isoformat(),
             "week_sunday": sunday.isoformat(), "draws": rows, "thresholds": thresholds,
             "ranking": (f"Highest historical/model/conditional category probability per dollar: {winner['game']} "
                         f"on {winner['date']}" if winner and len(rows) > 1 else
                         "No cross-game ranking: missing same-week draw inputs or national Gold Ball sales."),
             "limitations": [
+                snapshot.get("feed_note") or
                 "Snapshot is offline, dated data, not a live jackpot feed. Add each draw in the requested week.",
                 "A jackpot/MAXMILLIONS category hit can be shared. Actual receipt of >= $1M cannot be computed "
                 "without other players' winning selections. Variable lower-tier pools are not counted here.",

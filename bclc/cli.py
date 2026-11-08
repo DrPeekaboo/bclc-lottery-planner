@@ -301,6 +301,9 @@ def make_parser():
     compare.add_argument("--week-of", type=date.fromisoformat, default=date.today())
     compare.add_argument("--gold-issued", type=int, help="Final national entries, or explicitly a sales scenario.")
     compare.add_argument("--out", default="output/comparison")
+    draws = commands.add_parser("draws", help="Fetch current dated draw information from WCLC and save it "
+                                              "as a snapshot for compare/odds --snapshot.")
+    draws.add_argument("--out", default="output/draw_snapshot.json")
     check = commands.add_parser("check", help="Check your recorded 6/49 tickets against official results "
                                               "and rebuild the one-row-per-day results log.")
     check.add_argument("--tickets", help="Ticket CSV (default results/my_tickets.csv in the tool folder).")
@@ -422,6 +425,25 @@ def main(argv=None):
             return odds_command(args)
         if args.command == "check":
             return check_command(args)
+        if args.command == "draws":
+            from .draws import fetch_live_snapshot
+            snapshot = fetch_live_snapshot()
+            path = Path(args.out)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            save_json(path, snapshot)
+            print(snapshot["feed_note"])
+            print("Next draws:")
+            for draw in snapshot["draws"]:
+                if draw.get("drawn") is False:
+                    detail = (f"Gold Ball ${draw['gold_jackpot_cad'] // 10**6}M, {draw['gold_balls']} balls"
+                              if draw["game"] == "649" else
+                              f"jackpot ${draw['jackpot_cad'] // 10**6}M, {draw['maxmillions']} MAXMILLIONS, "
+                              f"{draw['maxplus']} MAXPLUS")
+                    print(f"{draw['date']} {GAMES[draw['game']].name}: {detail} ({draw['basis']})")
+            for note in snapshot["notes"]:
+                print("Note: " + note)
+            print(f"Saved {len(snapshot['draws'])} dated draws to {path.resolve()}")
+            return 0
         snapshot = json.loads(Path(args.snapshot).read_text(encoding="utf-8-sig"))
         report = compare_week(snapshot, money_cents(args.budget), args.week_of, args.gold_issued)
         directory = output_directory(args.out)

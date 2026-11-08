@@ -36,6 +36,13 @@ Checked November 7, 2026 against the rendered PlayNow Lotto Max and Lotto 6/49 p
 - Production start command (`uvicorn webapp.server:app --host ... --port $PORT` from the project root): `/healthz` and `/` return 200.
 - Not yet deployed: no public URL exists until the Render steps in DEPLOY.md are completed.
 
+## Live draw information (version 1.2.0, November 7-8, 2026)
+
+- New `bclc/draws.py` reads WCLC's next-jackpot box and both results pages. On the real pages at 22:26-22:40 BC it produced 18 dated draws (Oct 13 to Nov 11) with no notes. Lotto Max jackpots from MAXPLUS counts matched the known history (record $90M around Oct 16-20 with 18-20 MAXMILLIONS; $50M with 2 MAXMILLIONS on Nov 6; $10M announced for Nov 10).
+- WCLC's 6/49 box still showed the finished Nov 7 draw; the module derived Nov 11 = 16 balls / $38M from the Nov 7 white ball. WCLC's own box later showed exactly 16 balls / $38M for Nov 11.
+- Tests: 59 pass with the web packages (10 new draw-builder tests on synthetic WCLC-layout pages, 2 new cache/fallback tests); the plain CLI suite passes with website tests skipped. Tests never use the network.
+- Local browser check (http://localhost:8770): Dashboard "Next draws" shows only undrawn draws with published/derived basis; Odds tab lists live dated draws newest first with "(drawn)" labels; week of Nov 9 comparison now has both Nov 10 and Nov 11 draws; no page overflow at 375 px; no server errors.
+
 ## Not verified
 
 - PlayNow's on-screen number-pad layout (it sits inside the logged-in purchase flow). The 7-column grid remains an assumption; use `--slip-columns` or `--slip-map`.

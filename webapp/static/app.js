@@ -2,7 +2,7 @@
 /* BCLC Lottery Planner front end. The server does all validation and calculation. */
 
 const $ = (id) => document.getElementById(id);
-const state = { rules: null, lastPlan: null, favourites: new Set(), precheckTimer: null };
+const state = { rules: null, draws: null, lastPlan: null, favourites: new Set(), precheckTimer: null };
 
 // ---------- small helpers ----------
 function el(tag, attrs, ...children) {
@@ -114,6 +114,7 @@ function onGameChange() {
   renderRules();
   renderNumberGrid();
   populateDraws();
+  renderUpcoming();
   updateBudgetNote();
   refreshSession();
   $("history-template").href = "/api/templates/" + (game() === "649" ? "history_649" : "history_max");
@@ -155,6 +156,53 @@ async function loadRules() {
   $("verified").textContent = "rules checked " + checked.toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" });
   $("honesty").textContent = state.rules.honesty + " Popularity filters only aim to reduce prize sharing, which is unproven.";
   onGameChange();
+  loadDraws();
+}
+
+// ---------- dated draw information (live from WCLC, or the saved snapshot) ----------
+async function loadDraws() {
+  try {
+    state.draws = await api("/api/draws");
+  } catch (error) {
+    state.draws = null;
+    $("draws-status").textContent = "Draw information could not be loaded: " + error.message;
+    clear("upcoming-draws").append(el("li", null, "Unavailable right now. Try reloading the page."));
+    return;
+  }
+  for (const id of ["draws-status", "odds-draws-status"]) $(id).textContent = "Draw information: " + state.draws.status;
+  populateDraws();
+  renderUpcoming();
+}
+
+function drawDay(iso, options) {
+  return new Date(iso + "T12:00:00").toLocaleDateString("en-CA", options || { weekday: "short", month: "short", day: "numeric" });
+}
+
+function drawSummary(draw) {
+  if (draw.game === "649") {
+    return `Gold Ball jackpot $${draw.gold_jackpot_cad / 1e6}M or guaranteed $1M (${draw.gold_balls} balls in the drum); Classic $5M`;
+  }
+  const mm = draw.maxmillions ? `, ${draw.maxmillions} × $1M MAXMILLIONS` : "";
+  return `Jackpot $${draw.jackpot_cad / 1e6}M${mm}, ${draw.maxplus} × $100,000 MAXPLUS`;
+}
+
+function renderUpcoming() {
+  const list = $("upcoming-draws");
+  if (!state.draws) return;
+  clear("upcoming-draws");
+  // Live data marks drawn draws; the saved snapshot falls back to the date.
+  const coming = state.draws.draws.filter((d) => d.game === game() &&
+    (d.drawn === undefined ? d.date >= state.draws.today : !d.drawn));
+  if (!coming.length) {
+    list.append(el("li", null, "The next draw's jackpot has not been announced yet."));
+  }
+  for (const draw of coming) {
+    list.append(el("li", null, el("b", null, drawDay(draw.date, { weekday: "long", month: "long", day: "numeric" })),
+      ": " + drawSummary(draw) + ".", draw.basis ? el("span", { class: "muted" }, ` (${draw.basis})`) : null));
+  }
+  for (const note of state.draws.notes || []) {
+    if (note.toLowerCase().includes(game() === "649" ? "6/49" : "lotto max")) list.append(el("li", { class: "muted" }, note));
+  }
 }
 
 // ---------- session and uploads ----------
@@ -495,13 +543,15 @@ function wheelBody() {
 function populateDraws() {
   const select = $("odds-draw");
   while (select.options.length > 1) select.remove(1);
-  if (!state.rules) return;
-  const snapshot = state.rules.snapshot;
-  for (const draw of snapshot.draws.filter((d) => d.game === game())) {
-    const day = new Date(draw.date + "T12:00:00").toLocaleDateString("en-CA", { weekday: "short", year: "numeric", month: "short", day: "numeric" });
+  if (!state.draws) return;
+  const snapshot = state.draws;
+  // Newest first, so the next draw is at the top of the list.
+  const draws = snapshot.draws.filter((d) => d.game === game()).sort((a, b) => b.date.localeCompare(a.date));
+  for (const draw of draws) {
+    const day = drawDay(draw.date, { weekday: "short", year: "numeric", month: "short", day: "numeric" });
     const detail = draw.game === "649" ? `Gold Ball ${draw.gold_balls} balls` :
       `$${draw.jackpot_cad / 1e6}M, ${draw.maxmillions} MAXMILLIONS, ${draw.maxplus} MAXPLUS`;
-    const closed = draw.date < snapshot.as_of ? " (closed)" : "";
+    const closed = draw.drawn ? " (drawn)" : draw.date < snapshot.as_of ? " (closed)" : "";
     select.append(el("option", { value: draw.date }, `${day}: ${detail}${closed}`));
   }
 }
@@ -540,7 +590,8 @@ function renderOddsReport(report, gameKey) {
 
 function renderCompare(report) {
   const root = clear("compare-results");
-  root.append(el("p", { class: "small" }, `Dated draw information as of ${report.snapshot_as_of} (offline snapshot, not a live feed). Week ${report.week_monday} to ${report.week_sunday}.`));
+  const source = report.draw_info ? report.draw_info.status : `Dated draw information as of ${report.snapshot_as_of}.`;
+  root.append(el("p", { class: "small" }, `${source} Week ${report.week_monday} to ${report.week_sunday}.`));
   if (!report.draws.length) root.append(el("p", null, "No draws for that week in the snapshot."));
   const names = { gold_any_million_category: "Gold Ball, any award ($1M+)", gold_exact_1m: "Gold Ball, exactly $1M",
     gold_jackpot: "Gold Ball jackpot", classic_jackpot_category: "Classic $5M jackpot (win or share)",

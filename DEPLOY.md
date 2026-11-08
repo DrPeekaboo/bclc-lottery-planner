@@ -22,16 +22,26 @@ Render deploys from a Git repository. The `.gitignore` keeps personal files out:
 4. In Render choose **New > Blueprint**, pick the repository, and approve. Render reads `render.yaml`, installs `requirements.txt`, and starts `uvicorn webapp.server:app --host 0.0.0.0 --port $PORT`. Check that the plan shown is **Free** before confirming; no payment method is needed for it.
 5. When the deploy is live, Render shows a URL like `https://bclc-lottery-planner.onrender.com`. Open `/healthz` on it; it should return `{"ok": true, ...}`.
 
+## Current live service (set up November 7-8, 2026)
+
+- Site: https://bclc-lottery-planner.onrender.com (health: `/healthz`)
+- Repository: https://github.com/DrPeekaboo/bclc-lottery-planner (branch `main`, public)
+- Render service `bclc-lottery-planner` (srv-dbo01opsrm7s73ajuoc0), Free plan, Oregon, created in **Public Git Repository** mode with the build/start commands and health check above.
+
 ## Updating
 
-Change the code (or `examples/current_draw_snapshot.json` for new dated jackpots), run the tests, commit and push. `autoDeploy: true` makes Render redeploy automatically.
+Public Git Repository mode does **not** redeploy on push. After pushing, open the service in Render and choose **Manual Deploy > Deploy latest commit**, then check `/healthz` shows the new version.
+
+The publishable copy lives beside the full project (`..\bclc_lottery_upload`, its own Git repository). Apply each change to both folders, run the tests in the full project, then commit and push from the copy:
 
 ```
 .venv\Scripts\python -m unittest discover -s tests -v
-git add .
-git commit -m "Update draw snapshot"
-git push
+git -C ..\bclc_lottery_upload add -A
+git -C ..\bclc_lottery_upload commit -m "Describe the change"
+git -C ..\bclc_lottery_upload push
 ```
+
+Draw information (jackpots, Gold Ball balls, MAXMILLIONS, MAXPLUS) updates itself from WCLC's public pages; no redeploy is needed for new draws. `examples/current_draw_snapshot.json` is only the labelled fallback used when WCLC cannot be read.
 
 ## Settings (optional environment variables)
 
@@ -41,3 +51,5 @@ git push
 | `BCLC_TIER_SECONDS` | 20 | Time limit per odds tier before proven bounds are shown |
 | `BCLC_WORK_LIMIT` | 200000 | Counter-state limit per odds tier |
 | `BCLC_SESSION_IDLE_SECONDS` | 3600 | Idle time before a visitor's uploads are deleted |
+| `BCLC_LIVE_DRAWS` | 1 | Read current draw information from WCLC (0 = use only the saved snapshot) |
+| `BCLC_DRAW_REFRESH_SECONDS` | 1800 | How long live draw information is reused before re-reading WCLC |

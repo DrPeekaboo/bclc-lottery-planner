@@ -1,8 +1,12 @@
 """Web app tests (FastAPI TestClient). Skipped when the web packages are not installed."""
 from datetime import date, timedelta
+import os
 import random
 import time
 import unittest
+
+# Tests never reach the network: the saved snapshot is used unless a test injects a fetcher.
+os.environ["BCLC_LIVE_DRAWS"] = "0"
 
 try:
     from fastapi.testclient import TestClient
@@ -14,7 +18,7 @@ from bclc.control import Cancelled
 from bclc.games import GAMES, Draw
 from bclc.generate import generate_coverage
 from bclc.odds import UnionCounter, WorkLimit
-from webapp.server import app
+from webapp.server import DrawInfo, app, load_snapshot
 
 FAVS = [2, 4, 8, 9, 22, 24, 30, 31, 33, 34, 43, 45, 48]
 RECEIPT_MAX = ('play,line,numbers\n1,1,"8 23 32 39 43 44 50"\n1,2,"1 5 10 20 30 40 52"\n'
@@ -57,7 +61,11 @@ class WebTests(unittest.TestCase):
         self.assertEqual(rules["games"]["649"]["price"], "$3.00")
         self.assertEqual(len(rules["games"]["max"]["tiers"]), 9)
         self.assertEqual(rules["games"]["max"]["tiers"][0]["published_one_in_per_play"], 33_446_140)
-        self.assertIn("draws", rules["snapshot"])
+        draws = self.client.get("/api/draws").json()
+        self.assertEqual(draws["mode"], "saved")
+        self.assertIn("switched off", draws["status"])
+        self.assertTrue(draws["draws"])
+        self.assertRegex(draws["today"], r"^\d{4}-\d{2}-\d{2}$")
 
     def test_history_upload_validation_and_visitor_isolation(self):
         bad = self.client.post("/api/history/649", files={"file": ("h.csv", 'date,numbers,bonus\n2026-11-04,"1 2 3 4 5",9\n')})
@@ -160,6 +168,41 @@ class WebTests(unittest.TestCase):
         regime = done["result"]["regimes"][0]
         self.assertEqual(len(regime["frequencies"]), 49)
         self.assertEqual(len(regime["expected"]["odd"]), 7)
+
+
+class DrawInfoTests(unittest.TestCase):
+    LIVE = {**load_snapshot(), "mode": "live", "fetched_at": "2026-11-07 22:00 BC", "notes": []}
+
+    def test_live_result_is_cached(self):
+        calls = []
+
+        def fetch():
+            calls.append(1)
+            return dict(self.LIVE)
+        info = DrawInfo(True, 1800, fetch)
+        first, second = info.get(), info.get()
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(first["mode"], "live")
+        self.assertIn("Live from WCLC", second["status"])
+
+    def test_failure_falls_back_to_saved_then_stale_live(self):
+        def broken():
+            raise OSError("network down")
+        fallback = DrawInfo(True, 1800, broken).get()
+        self.assertEqual(fallback["mode"], "saved")
+        self.assertIn("Live update unavailable (network down)", fallback["status"])
+        results = [dict(self.LIVE), OSError("timed out")]
+
+        def flaky():
+            item = results.pop(0)
+            if isinstance(item, Exception):
+                raise item
+            return item
+        info = DrawInfo(True, 0, flaky, retry_seconds=0)   # every call refreshes
+        self.assertEqual(info.get()["mode"], "live")
+        stale = info.get()
+        self.assertEqual(stale["mode"], "live-stale")
+        self.assertIn("latest refresh failed (timed out)", stale["status"])
 
 
 class EngineHookTests(unittest.TestCase):

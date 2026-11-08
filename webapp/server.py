@@ -12,6 +12,8 @@ import json
 import logging
 import os
 from pathlib import Path
+import threading
+import time
 from typing import Literal
 
 from fastapi import Depends, FastAPI, File, HTTPException, Request, Response, UploadFile
@@ -23,6 +25,7 @@ from pydantic import BaseModel, Field
 from bclc import __version__
 from bclc.analysis import analyze, split_probabilities, sum_probabilities
 from bclc.compare import compare_week, validate_draw
+from bclc.draws import bc_now, fetch_live_snapshot
 from bclc.games import GAMES, cad, money_cents, read_history, read_receipt
 from bclc.generate import coverage, wheel_precheck
 from bclc.odds import TIERS, portfolio_odds, probability_record, series_probability, single_probability
@@ -42,6 +45,9 @@ WORK_LIMIT = int(os.environ.get("BCLC_WORK_LIMIT", "200000"))
 TIER_SECONDS = float(os.environ.get("BCLC_TIER_SECONDS", "20"))
 IDLE_SECONDS = int(os.environ.get("BCLC_SESSION_IDLE_SECONDS", "3600"))
 WORKERS = int(os.environ.get("BCLC_WORKERS", "2"))
+# Live draw information from WCLC (on by default); refreshed at most every 30 minutes.
+LIVE_DRAWS = os.environ.get("BCLC_LIVE_DRAWS", "1").strip().lower() not in ("0", "false", "no", "off")
+DRAW_REFRESH_SECONDS = int(os.environ.get("BCLC_DRAW_REFRESH_SECONDS", "1800"))
 
 jobs = JobManager(workers=WORKERS, keep_seconds=IDLE_SECONDS)
 store = SessionStore(idle_seconds=IDLE_SECONDS, on_expire=jobs.drop_owner)
@@ -83,6 +89,44 @@ def load_snapshot() -> dict:
     return json.loads(SNAPSHOT_PATH.read_text(encoding="utf-8-sig"))
 
 
+class DrawInfo:
+    """Live draw information from WCLC, cached; falls back to the saved snapshot, always labelled."""
+
+    def __init__(self, live: bool, refresh_seconds: int, fetcher=fetch_live_snapshot, retry_seconds: int = 60):
+        self.live, self.refresh, self.fetcher, self.retry = live, refresh_seconds, fetcher, retry_seconds
+        self.lock = threading.Lock()
+        self.cached, self.cached_at, self.last_attempt, self.error = None, 0.0, 0.0, None
+
+    def get(self) -> dict:
+        saved = load_snapshot()
+        if not self.live:
+            return {**saved, "mode": "saved",
+                    "status": f"Saved draw information from {saved['as_of']} (live updates are switched off)."}
+        with self.lock:
+            now = time.time()
+            fresh = self.cached is not None and now - self.cached_at < self.refresh
+            if not fresh and now - self.last_attempt >= self.retry:
+                self.last_attempt = now
+                try:
+                    self.cached, self.cached_at, self.error = self.fetcher(), now, None
+                    fresh = True
+                except Exception as exc:  # network, layout change or validation: never break the site
+                    self.error = (str(exc) or type(exc).__name__)[:200]
+                    log.warning("Live draw refresh failed: %s", self.error)
+            if fresh:
+                return {**self.cached, "status": f"Live from WCLC's public pages, updated {self.cached['fetched_at']}."}
+            if self.cached is not None:
+                return {**self.cached, "mode": "live-stale",
+                        "status": f"Last live update {self.cached['fetched_at']}; the latest refresh failed "
+                                  f"({self.error}). Figures may be out of date."}
+            return {**saved, "mode": "saved",
+                    "status": f"Live update unavailable ({self.error}); showing saved draw information "
+                              f"from {saved['as_of']}."}
+
+
+draw_info = DrawInfo(LIVE_DRAWS, DRAW_REFRESH_SECONDS)
+
+
 def rules_payload() -> dict:
     games = {}
     for key, game in GAMES.items():
@@ -99,8 +143,7 @@ def rules_payload() -> dict:
                                  "and the WCLC draw pages on 2026-11-07. The official BCLC game-conditions PDFs "
                                  "could not be opened by that automated check, and official BCLC records prevail.",
             "honesty": "Every valid combination has exactly the same chance of being drawn. Nothing here predicts "
-                       "numbers or raises the chance of a draw; more plays raise it only in proportion to cost.",
-            "snapshot": load_snapshot()}
+                       "numbers or raises the chance of a draw; more plays raise it only in proportion to cost."}
 
 
 # ---------- app, sessions, errors ----------
@@ -192,6 +235,15 @@ def healthz():
 @app.get("/api/rules")
 def rules():
     return rules_payload()
+
+
+@app.get("/api/draws")
+def draws():
+    """Dated draw information: live from WCLC when available, otherwise the saved snapshot (labelled)."""
+    info = draw_info.get()
+    return {"as_of": info["as_of"], "mode": info["mode"], "status": info["status"], "draws": info["draws"],
+            "notes": info.get("notes", []), "sources": info.get("sources", []),
+            "today": bc_now().date().isoformat()}
 
 
 @app.get("/api/templates/{name}")
@@ -468,10 +520,11 @@ def start_odds(body: OddsRequest, session: Session = Depends(visitor)):
         if body.budget and plays * game.price_cents > money_cents(body.budget.strip().lstrip("$")):
             raise ValueError("These tickets cost more than the budget you entered.")
         if body.draw_date:
-            matches = [d for d in load_snapshot()["draws"]
+            matches = [d for d in draw_info.get()["draws"]
                        if d["game"] == game.key and d["date"] == body.draw_date.isoformat()]
             if len(matches) != 1:
-                raise ValueError("No dated draw information for that game and date in the current snapshot.")
+                raise ValueError("No dated draw information for that game and date. Reload the page to see "
+                                 "the draws currently available.")
             snapshot_draw = matches[0]
             validate_draw(snapshot_draw)
             if game.key == "max" and pending:
@@ -513,11 +566,14 @@ def start_odds(body: OddsRequest, session: Session = Depends(visitor)):
 
 @app.post("/api/compare")
 def compare(body: CompareRequest, session: Session = Depends(visitor)):
+    info = draw_info.get()
     try:
-        return compare_week(load_snapshot(), money_cents(body.budget.strip().lstrip("$")),
-                            body.week_of or date.today(), body.gold_issued)
+        report = compare_week(info, money_cents(body.budget.strip().lstrip("$")),
+                              body.week_of or bc_now().date(), body.gold_issued)
     except ValueError as exc:
         bad_request(exc)
+    report["draw_info"] = {"mode": info["mode"], "status": info["status"], "notes": info.get("notes", [])}
+    return report
 
 
 @app.get("/api/jobs/{job_id}")

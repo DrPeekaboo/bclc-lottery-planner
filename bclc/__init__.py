@@ -1,3 +1,3 @@
 """Offline BCLC history analysis and budget-aware ticket planning."""
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"

@@ -143,6 +143,15 @@ Snapshot Max entries are checked against the published rules: the jackpot must b
 py -3 lottery_tool.py compare --budget 30 --snapshot examples/current_draw_snapshot.json --week-of 2026-11-02
 ```
 
+For current draws, first save a fresh snapshot from WCLC's public pages, then compare with it:
+
+```powershell
+py -3 lottery_tool.py draws --out output/draw_snapshot.json
+py -3 lottery_tool.py compare --budget 30 --snapshot output/draw_snapshot.json
+```
+
+`draws` reads the next-jackpot box and both results pages. Lotto Max jackpots come from each draw's published MAXPLUS count (one $100,000 prize per $1M of jackpot); Gold Ball ball counts follow the official rules (a white ball is removed and adds $2M; the gold ball resets to 30 balls and $10M), only along consecutive draws. Anything that cannot be established, such as a $50M+ jackpot whose MAXMILLIONS count is not shown, is left out and listed as a note. Each draw records whether its value was published or derived. BC time is taken as UTC-7.
+
 The included snapshot is dated **November 7, 2026**, and is deliberately not a live feed. It records the November 7 Gold Ball draw with 17 balls, the already-closed November 6 Max draw with two MAXMILLIONS, and the next Max draw on November 10 with no MAXMILLIONS. Dates in different calendar weeks are never silently treated as the same week. Past dates are marked closed relative to the snapshot. Add other verified draws to compare an entire week's schedule; the file does not claim to contain every draw.
 
 The national Gold Ball entry count is `null` because it is not known before sales close. The tool preserves that uncertainty and gives a conditional break-even threshold rather than inventing sales or declaring an exact winner. You can supply a final count, or an explicitly hypothetical sales scenario:
@@ -192,7 +201,7 @@ py -3 -m venv .venv
 .venv\Scripts\python -m uvicorn webapp.server:app --port 8000
 ```
 
-Then open http://localhost:8000. Website tests: `.venv\Scripts\python -m unittest discover -s tests -v`. Deployment to a free public HTTPS host is described in [DEPLOY.md](DEPLOY.md). To update the dated jackpot information, edit `examples/current_draw_snapshot.json` and redeploy.
+Then open http://localhost:8000. Website tests: `.venv\Scripts\python -m unittest discover -s tests -v`. Deployment to a free public HTTPS host is described in [DEPLOY.md](DEPLOY.md). The website reads current draw information from WCLC by itself (cached for 30 minutes) and shows its source on the Dashboard ("Next draws") and in the Odds tab. If WCLC cannot be read it says so and falls back to the last live data, or to the saved snapshot in `examples/current_draw_snapshot.json`.
 
 ## 9. Verification and sources
 
