@@ -694,7 +694,7 @@ function renderCompare(report) {
   const root = clear("compare-results");
   const source = report.draw_info ? report.draw_info.status : `Dated draw information as of ${report.snapshot_as_of}.`;
   root.append(el("p", { class: "small" }, `${source} Week ${report.week_monday} to ${report.week_sunday}.`));
-  if (!report.draws.length) root.append(el("p", null, "No draws for that week in the snapshot."));
+  if (!report.draws.length) root.append(el("p", null, "No draws for that week are in the available draw information."));
   const names = { gold_any_million_category: "Gold Ball, any award ($1M+)", gold_exact_1m: "Gold Ball, exactly $1M",
     gold_jackpot: "Gold Ball jackpot", classic_jackpot_category: "Classic $5M jackpot (win or share)",
     main_jackpot_category: "Max jackpot (win or share)", maxmillions_category: "MAXMILLIONS $1M (win or share)",
@@ -705,7 +705,7 @@ function renderCompare(report) {
       if (key in row) list.append(el("li", null, `${label}: ${row[key] ? oneIn(row[key]) : "unknown (needs national Gold Ball sales)"}`));
     }
     if (row.unknown_reason) list.append(el("li", { class: "muted" }, `${row.unknown_reason} Formula: ${row.gold_any_formula}.`));
-    if (row.quick_pick_assumption) list.append(el("li", { class: "muted" }, "Quick Picks: " + row.quick_pick_assumption));
+    if (row.quick_pick_assumption) list.append(el("li", { class: "muted" }, row.quick_pick_assumption));
     for (const note of Object.values(row.sharing || {})) list.append(el("li", { class: "muted" }, note));
     root.append(el("div", { class: "card" }, el("h3", null, `${row.date} · ${row.game} · ${row.plays} plays for ${row.spent_cad} (unspent ${row.unspent_cad})`),
       el("p", { class: "small muted" }, row.timing_relative_to_snapshot), list));

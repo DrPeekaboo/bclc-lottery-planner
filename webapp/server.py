@@ -433,7 +433,7 @@ def submit(session: Session, kind: str, work):
 
 def history_for(session: Session, game, use_history: bool):
     if not use_history:
-        return frozenset(), {"path": None, "warning": "NO HISTORY: past-combination exclusion is unavailable."}
+        return frozenset(), {"path": None, "warning": "No history supplied, so past jackpot combinations could not be excluded."}
     stored = session.history.get(game.key)
     if not stored:
         raise ValueError("Upload a history CSV for this game first, or untick 'Exclude past jackpots'.")

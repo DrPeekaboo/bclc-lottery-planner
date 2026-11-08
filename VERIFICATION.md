@@ -58,6 +58,10 @@ Independent of the project's own tests:
 - Live data: Nov 7 6/49 numbers, bonus, Gold Ball winner 42827458-02 and next Gold Ball jackpot $38M match PlayNow; Nov 6 Lotto Max numbers and 2 MAXMILLIONS / 50 MAXPLUS match PlayNow; Nov 3 Lotto Max numbers match Narcity; derived Lotto Max jackpots ($85M Oct 13, $90M Oct 16-20, $20M Oct 23, $40M Nov 3, $50M Nov 6) match news reports.
 - Dates: BC stays on UTC-7 from November 2026 (B.C. government and news reports); Lotto Max's 1-50 field began May 14, 2019 and its first draw was September 25, 2009, as the history checker assumes.
 
+## Plain-language wording (version 1.3.1, November 8, 2026)
+
+- Reworded visitor-facing notes without changing their meaning: comparison timing ("Not yet drawn when this information was read: check PlayNow's sales cutoff before buying"), the saved-data note, the Quick Pick model notes, the odds definition, the slip-column assumption, the no-history warning, the number-rules note and the wheel explanations. No calculation changed.
+
 ## Not verified
 
 - PlayNow's on-screen number-pad layout (it sits inside the logged-in purchase flow). The 7-column grid remains an assumption; use `--slip-columns` or `--slip-map`.

@@ -116,10 +116,12 @@ def strict_wheel_obstruction(v: int, k: int) -> str | None:
     for fixed in range(3):
         numerator, denominator = comb(v - fixed, 3 - fixed), comb(k - fixed, 3 - fixed)
         if numerator % denominator:
-            return (f"A full triple cover with overlap <=2 would require "
-                    f"C({v - fixed},{3 - fixed})/C({k - fixed},{3 - fixed}) = "
-                    f"{numerator}/{denominator} blocks through each fixed {fixed}-subset, "
-                    "which is not an integer. These requirements are mathematically incompatible.")
+            what = ("the total number of lines", "the number of lines containing any one favourite",
+                    "the number of lines containing any one pair of favourites")[fixed]
+            return (f"If lines may share at most 2 numbers, each group of three favourites can appear in only "
+                    f"one line, so {what} would have to be exactly {numerator}/{denominator} "
+                    f"(that is, C({v - fixed},{3 - fixed})/C({k - fixed},{3 - fixed})). That is not a whole "
+                    "number, so a full cover under that rule is mathematically impossible.")
     return None
 
 
@@ -170,7 +172,8 @@ def build_wheel(game: Game, favourites: tuple[int, ...], max_plays: int, past=fr
         possible |= mask
     if possible != universe:
         missing = [list(t) for i, t in enumerate(triples) if not possible >> i & 1]
-        return {"lines": [], "guaranteed": False, "reason": "Filters/favourites make full coverage impossible.",
+        return {"lines": [], "guaranteed": False, "reason": "Some groups of three favourites cannot appear in any line that passes the number "
+                          "rules, so a full guarantee is impossible with these favourites.",
                 "uncoverable_triples": missing, "covered_triples": 0, "total_triples": len(triples),
                 "lower_bound_plays": ceil(len(triples) / comb(game.k, 3))}
     rng, best = random.Random(seed), None
@@ -209,8 +212,9 @@ def build_wheel(game: Game, favourites: tuple[int, ...], max_plays: int, past=fr
             "overlap_relaxed": allow_overlap,
             "full_cover_found_plays": len(full),
             "lower_bound_plays": ceil(len(triples) / comb(game.k, 3)),
-            "reason": "Every favourite triple is covered." if certificate["guaranteed"] else
-                      "The found cover exceeds this budget; no guarantee. Search is not a minimum-cost proof."}
+            "reason": "Every group of three favourites is covered." if certificate["guaranteed"] else
+                      "The full cover found needs more plays than this budget allows, so there is no "
+                      "guarantee. The cover found is not proven to be the cheapest possible."}
 
 
 def verify_wheel(lines, favourites) -> dict:

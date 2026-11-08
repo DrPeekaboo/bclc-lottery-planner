@@ -88,7 +88,8 @@ def draw_comparison(draw: dict, budget_cents: int, gold_issued=None) -> dict:
         result["sharing"] = SHARING_MAX
         result["known_manual_lines"] = plays
         result["pending_quick_picks"] = 3 * plays
-        result["quick_pick_assumption"] = "Independent uniform lines with replacement; pre-issue MODEL."
+        result["quick_pick_assumption"] = ("Quick Pick lines are not known until you buy, so these figures model "
+                                           "them as independent random lines (repeats possible).")
         for key, draws in (("main_jackpot_category", 1), ("maxmillions_category", mm),
                            ("any_million_category", mm + 1), ("maxplus_category", draw["maxplus"])):
             result[key] = probability_record(iid_quick_pick_series(plays, 3 * plays, outcomes, draws))
@@ -107,7 +108,7 @@ def compare_week(snapshot: dict, budget_cents: int, week_of: date, gold_issued=N
             row["timing_relative_to_snapshot"] = (
                 "Drawn: results already posted" if draw.get("drawn") else
                 "Past draw: sales closed" if draw["date"] < snapshot["as_of"] else
-                "On/after snapshot date: verify current sales cutoff")
+                "Not yet drawn when this information was read: check PlayNow's sales cutoff before buying")
             rows.append(row)
     complete = all("million_category_probability_per_cad_spent" in row for row in rows)
     winner = max(rows, key=lambda r: r.get("million_category_probability_per_cad_spent", -1)) if rows and complete else None
@@ -132,7 +133,8 @@ def compare_week(snapshot: dict, budget_cents: int, week_of: date, gold_issued=N
                         "No cross-game ranking: missing same-week draw inputs or national Gold Ball sales."),
             "limitations": [
                 snapshot.get("feed_note") or
-                "Snapshot is offline, dated data, not a live jackpot feed. Add each draw in the requested week.",
+                "This is a saved copy of draw information, not live data, and it may not include every draw "
+                "in the week.",
                 "A jackpot/MAXMILLIONS category hit can be shared. Actual receipt of >= $1M cannot be computed "
                 "without other players' winning selections. Variable lower-tier pools are not counted here.",
                 "Gold Ball awards either $1M or the gold jackpot, not both, and are never shared; given the "

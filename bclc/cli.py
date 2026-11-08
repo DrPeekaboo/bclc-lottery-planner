@@ -84,7 +84,7 @@ def layout(args, game):
         mapping, _ = column_layout(game, slip_map=values)
         return mapping, f"Custom column map: {args.slip_map}"
     mapping, description = column_layout(game, args.slip_columns)
-    return mapping, description.replace("your own column map", "--slip-map")
+    return mapping, description + " For any other layout, use --slip-map."
 
 
 def history_for_generation(args, game):
@@ -92,7 +92,7 @@ def history_for_generation(args, game):
         if not args.allow_missing_history:
             raise ValueError("Supply --history your_results.csv. Until you have it, explicitly use "
                              "--allow-missing-history; past-combination exclusion will be unavailable.")
-        return frozenset(), {"path": None, "warning": "NO HISTORY: past-combination exclusion is unavailable."}
+        return frozenset(), {"path": None, "warning": "No history supplied, so past jackpot combinations could not be excluded."}
     draws = load_history(args.history, game)
     return frozenset(d.numbers for d in draws), {
         "path": str(Path(args.history).resolve()), "draws": len(draws),

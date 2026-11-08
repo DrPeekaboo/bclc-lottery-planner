@@ -262,11 +262,12 @@ def portfolio_odds(lines, game: Game, work_limit=200_000, pending_quick_picks=0,
     return {"game": game.name, "known_lines": len(lines), "distinct_known_lines": len(unique),
             "exact_all_main_tiers_complete": all(row["status"] == "exact" for row in records),
             "pending_quick_picks": pending_quick_picks,
-            "definition": "Probability of at least one line in EACH specified tier in ONE main draw. "
-                          "Different tiers can both occur; do not add these probabilities.",
-            "quick_pick_model": "If shown, pre-issue model assumes independent uniform Quick Pick lines "
-                                "with replacement. It is model-dependent, not a guarantee about issued tickets. "
-                                "Import all issued numbers to obtain unconditional-on-Quick-Pick-model exact odds.",
+            "definition": "The chance that at least one of your lines lands in each prize tier in one draw. "
+                          "One ticket can win in more than one tier, so do not add these chances together.",
+            "quick_pick_model": "Figures marked as a model treat Quick Pick lines that have not been issued yet "
+                                "as independent random lines (repeats possible). They describe the ticket before "
+                                "purchase, not your actual Quick Picks; for exact odds of a real ticket, enter all "
+                                "of its issued lines.",
             "work_limit_per_tier": work_limit, "time_limit_per_tier_seconds": time_limit_per_tier,
             "tiers": records}
 

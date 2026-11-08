@@ -14,8 +14,9 @@ def column_layout(game: Game, slip_columns: int = 7, slip_map: dict | None = Non
     if slip_columns < 1:
         raise ValueError("Slip columns must be positive.")
     return ({x: (x - 1) % slip_columns for x in range(1, game.n + 1)},
-            f"ASSUMED ascending row-major grid with {slip_columns} columns. "
-            "Verify against the current slip/number pad, or supply your own column map.")
+            f"Slip columns are assumed: numbers {slip_columns} apart (like 1, {1 + slip_columns}, "
+            f"{1 + 2 * slip_columns}) count as one column. PlayNow's real number pad was not checked; "
+            "change the column count if yours differs.")
 
 
 def make_plan(game: Game, budget_cents: int, past, history: dict, columns, column_description: str, *,
@@ -58,8 +59,9 @@ def make_plan(game: Game, budget_cents: int, past, history: dict, columns, colum
               "column_layout": column_description, "odds": {"status": "not_counted_yet"},
               "search": "Randomized search. Global maximum coverage is certified at this line count "
                         "only when both reported coverage upper bounds are attained.",
-              "sharing": "Popularity filters are user-specified heuristics. They do not improve draw odds; "
-                         "less prize sharing is unproven without player-selection data.",
+              "sharing": "The number rules do not change your chance of winning. They avoid commonly picked "
+                         "patterns so a prize is less likely to be shared, but that benefit is unproven "
+                         "without data on what other players pick.",
               "scope": "One draw, no Extra, subscriptions, promotions or future free-play winnings."}
     if wheel:
         report["wheel"] = result
