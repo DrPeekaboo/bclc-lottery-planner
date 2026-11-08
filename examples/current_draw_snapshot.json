@@ -1,0 +1,35 @@
+{
+  "as_of": "2026-11-07",
+  "note": "Offline snapshot. Every figure below was confirmed against PlayNow and WCLC pages on 2026-11-07 (Nov 6 Max: 2 MAXMILLIONS and 50 MAXPLUS results listed, so a $50M jackpot; Nov 7 Gold Ball: $36M, 17 balls; Nov 10 Max: est. $10M with 10 x $100,000). November 6 is closed; November 10 is in the next calendar week. National Gold Ball sales are unknown. Refresh draw inputs before future use.",
+  "draws": [
+    {
+      "game": "649",
+      "date": "2026-11-07",
+      "classic_jackpot_cad": 5000000,
+      "gold_jackpot_cad": 36000000,
+      "gold_balls": 17,
+      "gold_issued": null
+    },
+    {
+      "game": "max",
+      "date": "2026-11-06",
+      "jackpot_cad": 50000000,
+      "maxmillions": 2,
+      "maxplus": 50
+    },
+    {
+      "game": "max",
+      "date": "2026-11-10",
+      "jackpot_cad": 10000000,
+      "maxmillions": 0,
+      "maxplus": 10
+    }
+  ],
+  "sources": [
+    "https://www.playnow.com/lottery/lotto-max/",
+    "https://www.playnow.com/lottery/lotto-649/",
+    "https://www.wclc.com/winning-numbers/lotto-649-extra.htm",
+    "https://www.wclc.com/winning-numbers/lotto-max-extra.htm",
+    "https://www.wclc.com/play-now.htm"
+  ]
+}

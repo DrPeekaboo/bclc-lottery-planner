@@ -1,0 +1,19 @@
+# Render Blueprint: one free Python web service. No secrets are needed.
+# Free plan limits (render.com/docs/free, checked 2026-11-07): 512 MB, 0.1 CPU, sleeps after
+# 15 idle minutes (about a minute to wake), may restart at any time, no persistent disk.
+services:
+  - type: web
+    name: bclc-lottery-planner
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn webapp.server:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: BCLC_WORKERS
+        value: "2"
+      - key: BCLC_TIER_SECONDS
+        value: "20"
+      - key: BCLC_SESSION_IDLE_SECONDS
+        value: "3600"

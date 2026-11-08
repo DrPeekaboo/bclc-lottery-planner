@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+output/
+.venv/
+# Personal ticket records and results logs stay on this computer; never publish them.
+results/
+.env

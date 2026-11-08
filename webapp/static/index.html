@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BCLC Lottery Planner</title>
+  <meta name="description" content="Exact odds, filtered ticket plans and verified wheels for Lotto 6/49 and Lotto Max in BC.">
+  <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/styles.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <header class="top">
+    <div class="wrap">
+      <h1>BCLC Lottery Planner</h1>
+      <p class="sub">Lotto 6/49 and Lotto Max · exact odds, budget plans and verified wheels · <span id="verified">loading rules…</span></p>
+    </div>
+  </header>
+
+  <nav class="tabs wrap" aria-label="Sections">
+    <button type="button" class="tab" data-tab="dashboard" aria-selected="true">Dashboard</button>
+    <button type="button" class="tab" data-tab="history" aria-selected="false">History</button>
+    <button type="button" class="tab" data-tab="generator" aria-selected="false">Generator</button>
+    <button type="button" class="tab" data-tab="wheel" aria-selected="false">Wheel</button>
+    <button type="button" class="tab" data-tab="odds" aria-selected="false">Odds &amp; compare</button>
+  </nav>
+
+  <main class="wrap">
+    <section class="card setup" aria-label="Game and budget">
+      <fieldset class="game-pick">
+        <legend>Game</legend>
+        <label><input type="radio" name="game" value="649" checked> Lotto 6/49</label>
+        <label><input type="radio" name="game" value="max"> Lotto Max</label>
+      </fieldset>
+      <label class="budget">Total budget for one draw (CAD)
+        <input id="budget" type="text" inputmode="decimal" autocomplete="off" placeholder="e.g. 30.00" value="3.00">
+      </label>
+      <p class="muted small" id="budget-note"></p>
+    </section>
+
+    <!-- DASHBOARD -->
+    <section id="tab-dashboard" class="panel" data-panel="dashboard">
+      <div class="notice" id="honesty"></div>
+      <div class="grid2">
+        <div class="card">
+          <h2 id="rules-title">Rules</h2>
+          <p id="rules-lines"></p>
+          <p class="muted" id="rules-draws"></p>
+          <div class="table-wrap"><table id="rules-table"><thead><tr><th>Match</th><th>Prize</th><th>Published odds per play</th></tr></thead><tbody></tbody></table></div>
+          <ul id="rules-extras" class="small"></ul>
+          <p class="muted small" id="rules-note"></p>
+          <p class="small">Sources: <span id="rules-sources"></span></p>
+        </div>
+        <div class="card">
+          <h2>Your history CSV (optional)</h2>
+          <p class="small">Columns <code>date,numbers,bonus</code>, one past main draw per row, dates as <code>YYYY-MM-DD</code>. Used for history analysis and to exclude past jackpot combinations.</p>
+          <p class="small"><a id="history-template" href="/api/templates/history_649">Download an empty template</a></p>
+          <form id="history-form">
+            <input id="history-file" type="file" accept=".csv,text/csv" aria-label="History CSV file">
+            <button type="submit">Upload history</button>
+          </form>
+          <div id="history-status" class="status small" role="status"></div>
+          <div id="history-error" class="error" role="alert"></div>
+          <h3>Your data</h3>
+          <p class="small muted" id="storage-note">Uploads stay in server memory for this browser session only.</p>
+          <button type="button" id="delete-data" class="secondary">Delete my data</button>
+          <span id="delete-status" class="small" role="status"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- HISTORY -->
+    <section id="tab-history" class="panel" data-panel="history" hidden>
+      <div class="card">
+        <h2>History analysis</h2>
+        <p class="small">Counts how often each number was drawn and tests whether the draws look like fair random draws. Past frequencies never make a number more or less likely next time.</p>
+        <div class="row">
+          <label>Monte Carlo replicates <input id="simulations" type="number" min="99" max="4999" step="100" value="999"></label>
+          <button type="button" id="run-analysis">Analyze my history</button>
+        </div>
+        <div class="job" id="analysis-job" hidden><progress max="1" value="0"></progress><span class="stage small"></span><button type="button" class="secondary cancel">Cancel</button></div>
+        <div id="analysis-error" class="error" role="alert"></div>
+      </div>
+      <div id="analysis-results"></div>
+    </section>
+
+    <!-- GENERATOR -->
+    <section id="tab-generator" class="panel" data-panel="generator" hidden>
+      <div class="card">
+        <h2>Number generator</h2>
+        <p class="small">Builds lines within your budget. Every line must have at least three numbers above 31, no three-number runs or evenly spaced triples, more than one decade and slip column, at most one multiple of 7, at most one number containing a 7, and any two lines share at most two numbers.</p>
+        <div class="row">
+          <label class="check"><input type="checkbox" id="gen-history"> Exclude past jackpots from my uploaded history</label>
+          <label>Slip columns (assumed) <input id="gen-columns" type="number" min="1" max="20" value="7"></label>
+          <label>Seed <input id="gen-seed" type="number" min="0" value="2026"></label>
+        </div>
+        <button type="button" id="run-generate">Generate my plan</button>
+        <div class="job" id="generate-job" hidden><progress max="1" value="0"></progress><span class="stage small"></span><button type="button" class="secondary cancel">Cancel</button></div>
+        <div id="generate-error" class="error" role="alert"></div>
+      </div>
+      <div id="generate-results"></div>
+    </section>
+
+    <!-- WHEEL -->
+    <section id="tab-wheel" class="panel" data-panel="wheel" hidden>
+      <div class="card">
+        <h2>Favourite-number wheel</h2>
+        <p class="small">Pick 10–15 favourites. A wheel aims to guarantee at least a 3-number match whenever 3 of your favourites are drawn. The guarantee is shown only after every triple is checked against the final lines and the lines fit your budget.</p>
+        <div id="number-grid" class="number-grid" role="group" aria-label="Favourite numbers"></div>
+        <p class="small"><span id="fav-count">0</span> selected · <button type="button" class="linkish" id="fav-clear">Clear</button></p>
+        <div class="row">
+          <label class="check"><input type="checkbox" id="wheel-overlap"> Relax the overlap limit for this wheel (lines may share more than 2 numbers)</label>
+          <label class="check"><input type="checkbox" id="wheel-history"> Exclude past jackpots from my uploaded history</label>
+        </div>
+        <div id="wheel-precheck" class="small" role="status"></div>
+        <button type="button" id="run-wheel">Build wheel</button>
+        <div class="job" id="wheel-job" hidden><progress max="1" value="0"></progress><span class="stage small"></span><button type="button" class="secondary cancel">Cancel</button></div>
+        <div id="wheel-error" class="error" role="alert"></div>
+      </div>
+      <div id="wheel-results"></div>
+    </section>
+
+    <!-- ODDS & COMPARE -->
+    <section id="tab-odds" class="panel" data-panel="odds" hidden>
+      <div class="card">
+        <h2>Combined-ticket odds</h2>
+        <p class="small">Exact probability that at least one of your lines lands in each prize tier in one draw. Lines are not treated as independent.</p>
+        <fieldset class="row">
+          <legend>Lines to check</legend>
+          <label><input type="radio" name="odds-source" value="plan" checked> My latest generated plan or wheel</label>
+          <label><input type="radio" name="odds-source" value="receipt"> My actual issued tickets (upload)</label>
+        </fieldset>
+        <form id="receipt-form" class="row">
+          <input id="receipt-file" type="file" accept=".csv,text/csv" aria-label="Receipt CSV file">
+          <button type="submit" class="secondary">Upload tickets</button>
+          <a class="small" href="/api/templates/receipt_max">Lotto Max receipt template</a>
+        </form>
+        <p class="small muted">Receipt columns: <code>play,line,numbers</code>. For Lotto Max include all four issued lines of every play.</p>
+        <div id="receipt-status" class="status small" role="status"></div>
+        <div class="row">
+          <label>Dated draw (optional) <select id="odds-draw"><option value="">None</option></select></label>
+          <label>National Gold Ball numbers issued (6/49, optional) <input id="odds-gold" type="number" min="1" placeholder="unknown"></label>
+        </div>
+        <button type="button" id="run-odds">Calculate odds</button>
+        <div class="job" id="odds-job" hidden><progress max="1" value="0"></progress><span class="stage small"></span><button type="button" class="secondary cancel">Cancel</button></div>
+        <div id="odds-error" class="error" role="alert"></div>
+        <div id="odds-results"></div>
+      </div>
+      <div class="card">
+        <h2>Million-dollar comparison</h2>
+        <p class="small">Compares the chance of hitting a $1M-or-more prize category per dollar, using dated draw information. A category hit can be shared, except Gold Ball prizes, which are never shared.</p>
+        <div class="row">
+          <label>Week of <input id="compare-week" type="date"></label>
+          <label>National Gold Ball numbers issued (optional) <input id="compare-gold" type="number" min="1" placeholder="unknown"></label>
+        </div>
+        <button type="button" id="run-compare">Compare</button>
+        <div id="compare-error" class="error" role="alert"></div>
+        <div id="compare-results"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="wrap small muted">
+    <p>Planning and math only. This site does not sell tickets or connect to PlayNow. Official BCLC results and rules prevail. Gambling support in BC: 1-888-795-6111.</p>
+  </footer>
+</body>
+</html>

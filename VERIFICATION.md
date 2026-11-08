@@ -1,0 +1,45 @@
+# Verification
+
+Re-verified November 7, 2026 on Windows 11 with Python 3.14.6 (`py -3`), standard library only. Earlier wording in this file named Python 3.12.14; that interpreter is not installed on this machine, so those claims were re-run here.
+
+## Rules
+
+Checked November 7, 2026 against the rendered PlayNow Lotto Max and Lotto 6/49 pages and the WCLC draw pages:
+
+- Lotto 6/49: $3 per play, 6 numbers from 1-49, Classic jackpot $5M (win or share), tiers 5/6+bonus, 5/6, 4/6 (pool shares), 3/6 $10, 2/6+bonus $5, 2/6 $3 Free Play.
+- Gold Ball: one 10-digit number per $3 play; exact match only; drum starts at 30 balls (29 white = $1M, 1 gold = jackpot from $10M, +$2M per draw, up to $68M); prizes never shared; odds are one out of all Gold Ball numbers issued for that draw.
+- Lotto Max: $6 per play = four 7-number lines from 1-52; the player picks the first line only ("The remaining sets will be Quick Pick"); jackpot up to $90M; tiers 6/7+bonus to 4/7+bonus (pool shares), 4/7 $20, 3/7+bonus $20, 3/7 $6 Free Play.
+- MAXMILLIONS: $1M each, exact 7/7 match, win or share, only on jackpots of $50M or more.
+- MAXPLUS: $100,000 each, exact 7/7 match, win or share, one per $1M of jackpot, up to 90.
+- The BCLC game-conditions PDFs could not be opened by the automated check (HTTP 403 or a forced download), so they were not re-read.
+
+## Commands run and results
+
+- `py -3 lottery_tool.py --help` and each subcommand's `--help`: exit 0. The top-level help now describes all five commands.
+- `py -3 -m unittest discover -s tests -v`: 38 tests, all pass (20 original + 8 audit tests + 10 results-checker tests, including a clear message when Excel has the log open).
+- Results checker: parsed the live WCLC 6/49 page (8 draws, Oct 10 to Nov 4, 2026, including 75 Super Draw prizes on Oct 31); the Nov 4, Oct 31 and Oct 28 numbers match an independent read of the same page. A live `check` run wrote the cache and a one-row log for 2026-11-07 (draw pending). Exit 0. The added tests reproduce every published PlayNow odds figure from the encoded rules, enforce the MAXPLUS count and $90M cap, check Gold Ball "never shared" labelling, reject non-`YYYY-MM-DD` and future history dates, check top-level help, list uncovered triples in a partial wheel report, and check a $17.99 Max budget (2 plays, $5.99 unspent, 6 pending Quick Picks).
+- $30 Lotto 6/49 demo (no history): 10 lines, max overlap 1, 48 numbers and 150 pairs; both coverage upper bounds attained; all tiers exact. Exit 0.
+- $30 Lotto Max demo (no history): 5 chosen lines, 15 pending Quick Picks, max overlap 0, 35 numbers and 105 pairs; all chosen-line tiers exact; pre-issue figures labelled as the IID Quick Pick model. Exit 0.
+- $180 wheel, 13 favourites, overlap explicitly relaxed: all 286 triples verified covered with 56 plays ($168, $12 unspent); not claimed minimum. Exit 0. The same request without `--allow-wheel-overlap` is refused with the divisibility obstruction (exit 2).
+- One-play synthetic Max receipt with the November 10 snapshot: jackpot 1 in 33,446,140 (matches PlayNow), MAXPLUS series exact. Exit 0.
+- Twenty-line synthetic Max receipt, default work limit: 7 of 9 tiers exact; 4/7 and 3/7 reported as EXACT COUNT NOT FINISHED with valid bounds. Exit 4.
+- Same receipt with `--exact-work-limit 0`: all 9 tiers exact after 1,869.5 seconds (about 31 minutes) at a steady ~58 MB. Exit 0. The two previously unfinished tiers fall inside their reported bounds: 4/7 = 405735779/6020305200 (6.74%; bounds 0.35% to 6.93%) and 3/7 = 352470059/668922800 (52.69%; bounds 3.55% to 71.03%).
+- $3 Lotto 6/49 plan (one line, no history): 1 14 30 32 43 45; passes every filter on independent re-check; cost $3.00, unspent $0.00; all seven tiers exact. Exit 0.
+- Synthetic 60-draw 6/49 history: all four Monte Carlo chi-square tests non-significant after Holm correction. Exit 0. No real history was supplied or analyzed.
+- Week-of-November-2 comparison: Gold Ball probability stays unknown without national sales; November 6 Max marked closed; November 10 kept in its own week; sharing rules printed per category. Exit 0.
+- Error paths: receipt over budget, Max plan with additional-draw snapshot, missing history without the explicit flag, and a 3-decimal budget each exit 2 without writing output.
+
+## Website (local only, November 7, 2026)
+
+- Tests: `.venv\Scripts\python -m unittest discover -s tests -v` ran 47 tests, all pass (38 engine/CLI/results + 9 website tests). With plain `py -3` (no web packages) the website tests skip and the other 38 pass.
+- Browser checks on a local server (http://localhost:8770, built-in browser): rules dashboard; $30 6/49 plan (10 plays, $0.00 left, all tiers exact, identical lines to the CLI); CSV checklist download (11 rows); synthetic 400-draw history upload and analysis with 4 charts; wheel constraint warning before building, refusal without overlap relaxation, NO GUARANTEE at $30 (173/286 triples) and VERIFIED cover at $180 (56 plays, $168.00); plan odds with a dated Gold Ball scenario (56 plays / 5,000,000 = 1 in 89,286); synthetic Lotto Max receipt upload with Nov 10 MAXPLUS odds; week comparison; readable error for a 3.333 budget; progress display and Cancel on a 4,999-replicate analysis; no horizontal scrolling at 375 px on any tab; no server errors.
+- Production start command (`uvicorn webapp.server:app --host ... --port $PORT` from the project root): `/healthz` and `/` return 200.
+- Not yet deployed: no public URL exists until the Render steps in DEPLOY.md are completed.
+
+## Not verified
+
+- PlayNow's on-screen number-pad layout (it sits inside the logged-in purchase flow). The 7-column grid remains an assumption; use `--slip-columns` or `--slip-map`.
+- Any reduction in prize sharing from the popularity filters (no player-selection data exists here).
+- National Gold Ball sales for any draw.
+
+Examples are test inputs and checklists, not recommendations or purchased tickets. Exact numerical odds do not establish reduced prize sharing or predictive ability.
