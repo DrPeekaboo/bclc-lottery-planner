@@ -49,6 +49,15 @@ Checked November 7, 2026 against the rendered PlayNow Lotto Max and Lotto 6/49 p
 - Tests: 69 pass with the web packages. Tier decisions are cross-checked on 3,000 random 6/49 lines against the separate results-checker classifier and on 3,000 random Lotto Max lines against an independent statement of PlayNow's table; every tier occurs.
 - Local browser check against live official results: Ken's Nov 7 line 1 14 30 32 43 45 -> 0 matched, no prize; Nov 7 numbers -> 6/6; 6 9 15 22 40 41 -> 2/6+bonus $5; Gold Ball 42827458-02 -> $1,000,000 match; Lotto Max Nov 6 numbers -> 7/7 and 6 7 25 35 39 42 47 -> MAXMILLIONS match; 5-number Max line -> readable error; no overflow at 375 px; no server errors.
 
+## Accuracy audit of the live site (version 1.3.0, November 8, 2026)
+
+Independent of the project's own tests:
+- Rules: every price, number range, draw time, Gold Ball rule and all 16 prize tiers with published odds on the live site match PlayNow's rendered Lotto 6/49 and Lotto Max pages (re-read November 8), including "Pick seven numbers you like for the first set. The remaining sets will be Quick Pick."
+- Exact odds: a separate brute-force program counted all 601,304,088 Lotto 6/49 outcomes (13,983,816 main draws x 43 bonus numbers) for the live $30 plan; all 7 tier probabilities equal the site's exact fractions.
+- Plans: a separate re-implementation of the line rules confirmed the live $30 6/49 plan (10 lines, max overlap 1, $0.00 left) and $17.99 Max plan (2 plays, $5.99 left, 6 pending Quick Picks); the live $180 wheel covers all 286 favourite triples for $168.00; the $30 wheel's 113 uncovered triples are exact; the strict wheel is refused.
+- Live data: Nov 7 6/49 numbers, bonus, Gold Ball winner 42827458-02 and next Gold Ball jackpot $38M match PlayNow; Nov 6 Lotto Max numbers and 2 MAXMILLIONS / 50 MAXPLUS match PlayNow; Nov 3 Lotto Max numbers match Narcity; derived Lotto Max jackpots ($85M Oct 13, $90M Oct 16-20, $20M Oct 23, $40M Nov 3, $50M Nov 6) match news reports.
+- Dates: BC stays on UTC-7 from November 2026 (B.C. government and news reports); Lotto Max's 1-50 field began May 14, 2019 and its first draw was September 25, 2009, as the history checker assumes.
+
 ## Not verified
 
 - PlayNow's on-screen number-pad layout (it sits inside the logged-in purchase flow). The 7-column grid remains an assumption; use `--slip-columns` or `--slip-map`.
